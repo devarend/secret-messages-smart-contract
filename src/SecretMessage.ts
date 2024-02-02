@@ -11,6 +11,7 @@ import {
   UInt8,
   Gadgets,
   Provable,
+  Struct,
 } from "o1js";
 
 const adminPublicKey =
@@ -21,10 +22,15 @@ const initial = {
   actionState: Reducer.initialActionState,
 };
 
+export class Message extends Struct({
+  address: PublicKey,
+  message: Field,
+}) {}
+
 export class SecretMessage extends SmartContract {
   @state(UInt8) amountOfMessagesSent = State<UInt8>();
   @state(PublicKey) adminKey = State<PublicKey>();
-  reducer = Reducer({ actionType: PublicKey });
+  reducer = Reducer({ actionType: Message });
 
   init() {
     super.init();
@@ -41,15 +47,16 @@ export class SecretMessage extends SmartContract {
       fromActionState: Reducer.initialActionState,
     });
 
-    let { state: addressExists, actionState } = this.reducer.reduce(
+    let { state: addressExists } = this.reducer.reduce(
       actions,
       Bool,
-      (state: Bool, action: PublicKey) => state.or(action.equals(address)),
+      (state: Bool, action: Message) =>
+        state.or(action.address.equals(address)),
       initial
     );
 
     addressExists.assertFalse("Address already exists");
-    this.reducer.dispatch(address);
+    this.reducer.dispatch(new Message({ address, message: Field(0) }));
   }
 
   @method addMessage(message: Field, eligiblePrivateKey: PrivateKey) {
@@ -57,14 +64,16 @@ export class SecretMessage extends SmartContract {
     const actions = this.reducer.getActions({
       fromActionState: Reducer.initialActionState,
     });
-    let { state: isAddressEligible } = this.reducer.reduce(
+    let { state: allowedToAddMessage } = this.reducer.reduce(
       actions,
       Bool,
-      (state: Bool, action: PublicKey) =>
-        state.or(action.equals(eligibleAddress)),
+      (state: Bool, action: Message) =>
+        state
+          .or(action.address.equals(eligibleAddress))
+          .and(action.message.equals(Field(0))),
       initial
     );
-    isAddressEligible.assertTrue("Address is not eligible");
+    allowedToAddMessage.assertTrue("Address is not allowed to add a message");
 
     const filteredMessage = Gadgets.and(message, Field.from(63), 254);
     const [sixthBit, fifthBit, fourthBit, thirdBit, secondBit, firstBit] =
@@ -94,5 +103,12 @@ export class SecretMessage extends SmartContract {
     const amountOfMessagesSent =
       this.amountOfMessagesSent.getAndRequireEquals();
     this.amountOfMessagesSent.set(amountOfMessagesSent.add(1));
+
+    this.reducer.dispatch(
+      new Message({
+        address: eligibleAddress,
+        message,
+      })
+    );
   }
 }
