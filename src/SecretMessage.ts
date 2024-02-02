@@ -15,7 +15,7 @@ import {
 } from "o1js";
 
 const adminPublicKey =
-  "B62qmSizxA4KPDV9pAa8G9WxiM9A6Z2YsW8SJr26gR2nFnerMuGn9V1";
+  "B62qqxCyD8QUdu91RqCTE34MKgSEV6GLsLRW48CUYWuJgY1mcfhSvzm";
 
 const initial = {
   state: Bool(false),
